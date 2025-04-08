@@ -1,137 +1,151 @@
 import tkinter as tk
-from tkinter import filedialog, messagebox, Listbox, Scrollbar
+from tkinter import filedialog, messagebox, Listbox, Scrollbar, simpledialog
 from PIL import Image, ImageTk
+from fpdf import FPDF
+import os
+import uuid
 
 class ImageViewer:
     def __init__(self, root):
         self.root = root
-        self.root.title("Галерея изображений")
+        self.root.title("Галерея изображений → PDF")
         self.images = []
-        self.current_image = None
-
-        # Получаем размеры экрана
+        
+        # Настройка размеров окна (60% ширины, 70% высоты экрана)
         screen_width = root.winfo_screenwidth()
         screen_height = root.winfo_screenheight()
-        
-        # Устанавливаем размеры окна (60% ширины, 70% высоты)
         window_width = int(screen_width * 0.6)
         window_height = int(screen_height * 0.7)
         self.root.geometry(f"{window_width}x{window_height}")
-        self.root.minsize(400, 300)  # Минимальный размер окна
-
-        # Основной контейнер с прокруткой
-        self.main_frame = tk.Frame(root)
-        self.main_frame.pack(fill=tk.BOTH, expand=True)
-
+        
+        # Основные элементы интерфейса
+        self.setup_ui()
+    
+    def setup_ui(self):
+        # Фрейм для кнопок
+        btn_frame = tk.Frame(self.root)
+        btn_frame.pack(pady=10, fill=tk.X)
+        
         # Кнопки управления
-        self.btn_frame = tk.Frame(self.main_frame)
-        self.btn_frame.pack(pady=10, fill=tk.X)
-
-        self.add_btn = tk.Button(self.btn_frame, text="Добавить фото", command=self.add_image)
-        self.add_btn.pack(side=tk.LEFT, padx=5)
-
-        self.del_btn = tk.Button(self.btn_frame, text="Удалить фото", command=self.delete_image)
-        self.del_btn.pack(side=tk.LEFT, padx=5)
-
-        # Список изображений (с прокруткой)
-        self.list_frame = tk.Frame(self.main_frame)
-        self.list_frame.pack(fill=tk.BOTH, expand=True)
-
-        self.scrollbar_list = Scrollbar(self.list_frame)
-        self.scrollbar_list.pack(side=tk.RIGHT, fill=tk.Y)
-
+        tk.Button(btn_frame, text="Добавить фото", command=self.add_image).pack(side=tk.LEFT, padx=5)
+        tk.Button(btn_frame, text="Удалить фото", command=self.delete_image).pack(side=tk.LEFT, padx=5)
+        tk.Button(btn_frame, text="Создать PDF", command=self.create_pdf, bg="#4CAF50", fg="white").pack(side=tk.RIGHT, padx=5)
+        
+        # Список изображений с прокруткой
+        list_frame = tk.Frame(self.root)
+        list_frame.pack(fill=tk.BOTH, expand=True)
+        
+        scrollbar = Scrollbar(list_frame)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
         self.image_list = Listbox(
-            self.list_frame,
-            width=50,
-            height=10,
-            yscrollcommand=self.scrollbar_list.set,
+            list_frame, 
+            width=50, 
+            height=15,
+            yscrollcommand=scrollbar.set,
             selectmode=tk.SINGLE
         )
         self.image_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        self.image_list.bind("<<ListboxSelect>>", self.show_selected_image)
-
-        self.scrollbar_list.config(command=self.image_list.yview)
-
-        # Область для изображения (с прокруткой)
-        self.image_canvas = tk.Canvas(self.main_frame, bg="white")
-        self.image_canvas.pack(fill=tk.BOTH, expand=True)
-
-        # Скроллбары для изображения
-        self.scrollbar_x = Scrollbar(self.main_frame, orient=tk.HORIZONTAL, command=self.image_canvas.xview)
-        self.scrollbar_x.pack(side=tk.BOTTOM, fill=tk.X)
-        self.scrollbar_y = Scrollbar(self.main_frame, orient=tk.VERTICAL, command=self.image_canvas.yview)
-        self.scrollbar_y.pack(side=tk.RIGHT, fill=tk.Y)
-
-        self.image_canvas.configure(
-            xscrollcommand=self.scrollbar_x.set,
-            yscrollcommand=self.scrollbar_y.set
-        )
-
-        # Внутренний фрейм для изображения
-        self.image_frame = tk.Frame(self.image_canvas)
-        self.image_canvas.create_window((0, 0), window=self.image_frame, anchor="nw")
-
-        # Метка для изображения
-        self.image_label = tk.Label(self.image_frame)
-        self.image_label.pack()
-
-        # Привязка изменения размера
-        self.image_frame.bind("<Configure>", lambda e: self.image_canvas.configure(scrollregion=self.image_canvas.bbox("all")))
+        scrollbar.config(command=self.image_list.yview)
+        
+        # Область предпросмотра изображения
+        self.preview_label = tk.Label(self.root)
+        self.preview_label.pack(pady=10)
+        
+        # Привязка событий
+        self.image_list.bind("<<ListboxSelect>>", self.show_preview)
     
     def add_image(self):
-        file_paths = filedialog.askopenfilenames(
+        files = filedialog.askopenfilenames(
             title="Выберите изображения",
-            filetypes=[("Изображения", "*.jpg *.jpeg *.png *.bmp *.gif")]
+            filetypes=[("Изображения", "*.jpg *.jpeg *.png *.bmp")]
         )
-        if not file_paths:
-            return
-        
-        for path in file_paths:
-            if path not in self.images:
-                self.images.append(path)
-                self.image_list.insert(tk.END, path.split("/")[-1])
+        for f in files:
+            if f not in self.images:
+                self.images.append(f)
+                self.image_list.insert(tk.END, os.path.basename(f))
     
     def delete_image(self):
-        selected_index = self.image_list.curselection()
-        if not selected_index:
+        selected = self.image_list.curselection()
+        if not selected:
             messagebox.showwarning("Ошибка", "Выберите изображение для удаления!")
             return
         
-        del self.images[selected_index[0]]
-        self.image_list.delete(selected_index)
+        self.images.pop(selected[0])
+        self.image_list.delete(selected)
         
-        if len(self.images) == 0:
-            self.image_label.config(image=None)
-            self.image_label.image = None
-        elif selected_index[0] == self.image_list.curselection():
-            self.image_list.selection_set(0)
-            self.show_selected_image()
+        # Очищаем превью, если удалили текущее изображение
+        if not self.images:
+            self.preview_label.config(image=None)
+            self.preview_label.image = None
     
-    def show_selected_image(self, event=None):
-        selected_index = self.image_list.curselection()
-        if not selected_index:
+    def show_preview(self, event=None):
+        selected = self.image_list.curselection()
+        if not selected or not self.images:
             return
         
-        img_path = self.images[selected_index[0]]
         try:
-            img = Image.open(img_path)
-            
-            # Масштабируем изображение под размер Canvas (с сохранением пропорций)
-            canvas_width = self.image_canvas.winfo_width() - 20  # Учитываем отступы
-            canvas_height = self.image_canvas.winfo_height() - 20
-            
-            img.thumbnail((canvas_width, canvas_height), Image.LANCZOS)
+            img = Image.open(self.images[selected[0]])
+            img.thumbnail((400, 400))
             
             img_tk = ImageTk.PhotoImage(img)
-            self.image_label.config(image=img_tk)
-            self.image_label.image = img_tk
-            
-            # Обновляем скроллрегион
-            self.image_frame.update_idletasks()
-            self.image_canvas.config(scrollregion=self.image_canvas.bbox("all"))
+            self.preview_label.config(image=img_tk)
+            self.preview_label.image = img_tk
         except Exception as e:
-            messagebox.showerror("Ошибка", f"Не удалось загрузить изображение: {e}")
-
+            messagebox.showerror("Ошибка", f"Не удалось загрузить изображение:\n{e}")
+    
+    def create_pdf(self):
+        if not self.images:
+            messagebox.showwarning("Ошибка", "Нет изображений для создания PDF!")
+            return
+        
+        pdf_name = simpledialog.askstring("Имя файла", "Введите название PDF (без .pdf):")
+        if not pdf_name:
+            return
+        
+        save_path = filedialog.asksaveasfilename(
+            defaultextension=".pdf",
+            filetypes=[("PDF файлы", "*.pdf")],
+            initialfile=f"{pdf_name}.pdf"
+        )
+        if not save_path:
+            return
+        
+        try:
+            pdf = FPDF()
+            pdf.set_auto_page_break(auto=True, margin=15)
+            
+            temp_files = []  # Будем хранить временные файлы для последующего удаления
+            
+            for img_path in self.images:
+                img = Image.open(img_path)
+                
+                if img.mode != 'RGB':
+                    img = img.convert('RGB')
+                
+                # Генерируем уникальное имя для временного файла
+                temp_path = f"temp_pdf_img_{uuid.uuid4().hex}.jpg"
+                img.save(temp_path)
+                temp_files.append(temp_path)
+                
+                pdf.add_page()
+                pdf.image(temp_path, x=10, y=10, w=190)
+            
+            pdf.output(save_path)
+            
+            # Удаляем все временные файлы
+            for temp_file in temp_files:
+                if os.path.exists(temp_file):
+                    os.remove(temp_file)
+            
+            messagebox.showinfo("Готово!", f"PDF успешно сохранён:\n{save_path}")
+        except Exception as e:
+            # Удаляем временные файлы даже в случае ошибки
+            for temp_file in temp_files:
+                if os.path.exists(temp_file):
+                    os.remove(temp_file)
+            messagebox.showerror("Ошибка", f"Не удалось создать PDF:\n{e}")
+    
 if __name__ == "__main__":
     root = tk.Tk()
     app = ImageViewer(root)
