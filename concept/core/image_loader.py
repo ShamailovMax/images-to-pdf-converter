@@ -1,4 +1,4 @@
-from tkinter import filedialog, messagebox
+from tkinter import filedialog
 import os
 
 class ImageLoader:
@@ -21,5 +21,6 @@ class ImageLoader:
                 self.listbox.insert("end", os.path.basename(f))
     
     def delete_image(self, index):
-        self.images.pop(index)
-        self.listbox.delete(index)
+        if 0 <= index < len(self.images):
+            self.images.pop(index)
+            self.listbox.delete(index)
