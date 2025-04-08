@@ -1,0 +1,117 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewmodels="clr-namespace:ImageToPdfConverter.ViewModels"
+             xmlns:models="clr-namespace:ImageToPdfConverter.Models"
+             x:Class="ImageToPdfConverter.MainPage"
+             Title="Image to PDF Converter">
+
+    <ContentPage.BindingContext>
+        <viewmodels:MainViewModel />
+    </ContentPage.BindingContext>
+
+    <Grid RowDefinitions="Auto,*,Auto,Auto,Auto" 
+          Padding="20"
+          RowSpacing="10">
+
+        <!-- Заголовок -->
+        <Label Text="Конвертер изображений в PDF" 
+               FontSize="24" 
+               FontAttributes="Bold"
+               HorizontalOptions="Center"
+               Margin="0,0,0,10"
+               Grid.Row="0" />
+
+        <!-- Список изображений -->
+        <Frame Grid.Row="1" 
+               Padding="10" 
+               BorderColor="LightGray" 
+               HasShadow="True"
+               CornerRadius="5">
+            <Grid RowDefinitions="Auto,*">
+                <Label Text="Выбранные изображения:" 
+                       FontSize="16"
+                       FontAttributes="Bold"
+                       Margin="0,0,0,5"
+                       Grid.Row="0" />
+
+                <CollectionView Grid.Row="1"
+                                ItemsSource="{Binding Images}"
+                                SelectionMode="Single"
+                                SelectedItem="{Binding SelectedImage, Mode=TwoWay}">
+                    <CollectionView.EmptyView>
+                        <Label Text="Нет выбранных изображений. Добавьте изображения с помощью кнопки ниже."
+                               HorizontalOptions="Center"
+                               VerticalOptions="Center"
+                               HorizontalTextAlignment="Center"
+                               TextColor="Gray" />
+                    </CollectionView.EmptyView>
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="models:ImageItem">
+                            <Grid ColumnDefinitions="*,Auto"
+                                  Padding="5">
+                                <Label Text="{Binding FileName}"
+                                       VerticalOptions="Center" />
+                                <Button Grid.Column="1"
+                                        Text="✕"
+                                        FontSize="12"
+                                        WidthRequest="30"
+                                        HeightRequest="30"
+                                        Padding="0"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:MainViewModel}}, Path=RemoveImageCommand}"
+                                        CommandParameter="{Binding .}" />
+                            </Grid>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </Grid>
+        </Frame>
+
+        <!-- Предпросмотр выбранного изображения -->
+        <Frame Grid.Row="2" 
+               BorderColor="LightGray"
+               HasShadow="True"
+               CornerRadius="5"
+               HeightRequest="200"
+               Padding="10">
+            <Grid>
+                <Label Text="Предпросмотр" 
+                       IsVisible="{Binding SelectedImage, Converter={StaticResource NullToBoolConverter}}"
+                       HorizontalOptions="Center"
+                       VerticalOptions="Center" />
+                <Image Source="{Binding SelectedImage.ImageSource}"
+                       IsVisible="{Binding SelectedImage, Converter={StaticResource NotNullToBoolConverter}}"
+                       Aspect="AspectFit" />
+            </Grid>
+        </Frame>
+
+        <!-- Кнопки управления -->
+        <HorizontalStackLayout Grid.Row="3" 
+                              Spacing="10" 
+                              HorizontalOptions="Center" 
+                              Margin="0,10,0,10">
+            <Button Text="Добавить изображения"
+                    Command="{Binding AddImagesCommand}"
+                    WidthRequest="180"
+                    HeightRequest="50" />
+            <Button Text="Создать PDF"
+                    Command="{Binding CreatePdfCommand}"
+                    IsEnabled="{Binding Images.Count, Converter={StaticResource CountToBoolConverter}}"
+                    BackgroundColor="#2196F3"
+                    TextColor="White"
+                    WidthRequest="180"
+                    HeightRequest="50" />
+        </HorizontalStackLayout>
+
+        <!-- Статус операции -->
+        <StackLayout Grid.Row="4" 
+                     IsVisible="{Binding StatusMessage, Converter={StaticResource NotNullOrEmptyToBoolConverter}}">
+            <Label Text="{Binding StatusMessage}"
+                   HorizontalOptions="Center"
+                   TextColor="{Binding IsBusy, Converter={StaticResource BusyToColorConverter}}" />
+            <ActivityIndicator IsRunning="{Binding IsBusy}"
+                              HorizontalOptions="Center"
+                              Margin="0,5,0,0" />
+        </StackLayout>
+    </Grid>
+</ContentPage>
