@@ -6,6 +6,10 @@ using System.Threading.Tasks;
 using Microsoft.Maui.Graphics;
 using Microsoft.Maui.Graphics.Skia;
 using SkiaSharp;
+#if ANDROID
+using Android.OS;
+using Android.Content;
+#endif
 
 namespace ImageToPdfConverter.Services
 {
@@ -72,32 +76,25 @@ namespace ImageToPdfConverter.Services
             string destinationPath = await SavePdfToPublicStorageAsync(pdfPath, fileName);
             return destinationPath;
         }
+
         private async Task<string> SavePdfToPublicStorageAsync(string sourcePath, string fileName)
         {
             try
             {
-                // Получаем путь для сохранения в общедоступную папку
-                string targetPath;
+                // Копируем файл в общую папку кэша, откуда его можно будет поделиться
+                string sharedPath = Path.Combine(FileSystem.CacheDirectory, fileName);
+                File.Copy(sourcePath, sharedPath, true);
 
-                if (DeviceInfo.Platform == DevicePlatform.Android)
+                // Используем Share API для всех платформ
+                // Это позволит пользователю выбрать место сохранения
+                await Share.Default.RequestAsync(new ShareFileRequest
                 {
-                    // Для Android используем MediaStore API через FileSystem
-                    targetPath = Path.Combine(FileSystem.AppDataDirectory, fileName);
-                    File.Copy(sourcePath, targetPath, true);
-                }
-                else if (DeviceInfo.Platform == DevicePlatform.iOS)
-                {
-                    // Для iOS используем папку Documents
-                    targetPath = Path.Combine(FileSystem.AppDataDirectory, fileName);
-                    File.Copy(sourcePath, targetPath, true);
-                }
-                else
-                {
-                    // Для других платформ просто возвращаем исходный путь
-                    targetPath = sourcePath;
-                }
+                    Title = "Сохранить PDF файл",
+                    File = new ShareFile(sharedPath)
+                });
 
-                return targetPath;
+                // Возвращаем путь к копии файла
+                return sharedPath;
             }
             catch (Exception ex)
             {

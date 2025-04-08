@@ -156,18 +156,22 @@ namespace ImageToPdfConverter.ViewModels
                 // Создаем PDF
                 string pdfPath = await _pdfService.CreatePdfFromImagesAsync(imagePaths, fileName);
 
-                StatusMessage = $"PDF создан успешно: {pdfPath}";
+                StatusMessage = $"PDF создан успешно. Вы можете поделиться файлом или сохранить его.";
 
-                bool shouldOpen = await Application.Current.MainPage.DisplayAlert(
+                // Спрашиваем пользователя, хочет ли он открыть файл сразу
+                // Заменить строчку
+                bool shouldShare = await Application.Current.MainPage.DisplayAlert(
                     "PDF создан",
-                    $"PDF файл успешно создан и сохранен как {fileName}. Хотите открыть его?",
+                    $"PDF файл успешно создан. Хотите сохранить его сейчас?",
                     "Да", "Нет");
 
-                if (shouldOpen)
+                if (shouldShare)
                 {
-                    await Launcher.OpenAsync(new OpenFileRequest
+                    // Убираем присвоение результата
+                    await Share.Default.RequestAsync(new ShareFileRequest
                     {
-                        File = new ReadOnlyFile(pdfPath)
+                        Title = "Сохранить PDF как...",
+                        File = new ShareFile(pdfPath)
                     });
                 }
             }
@@ -180,7 +184,6 @@ namespace ImageToPdfConverter.ViewModels
                 IsBusy = false;
             }
         }
-
         public event PropertyChangedEventHandler PropertyChanged;
 
         protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
